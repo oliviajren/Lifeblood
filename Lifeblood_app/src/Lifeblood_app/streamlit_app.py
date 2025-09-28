@@ -532,8 +532,7 @@ def update_existing_record(record_id, form_date, inspector_name, donation_chairs
 
 def view_all_submissions():
     """Display all submissions in exact raw table format"""
-    st.header("📊 All Inspection Submissions")
-    st.caption(f"Showing exact content from `{get_table_name()}` table (read-only)")
+    # st.caption(f"Showing exact content from `{get_table_name()}` table (read-only)")
     
     # Get submissions from database
     db_submissions = get_submissions_from_database()
@@ -715,8 +714,6 @@ def show_record_comparison(original_record, updated_record):
 
 def edit_existing_record(user_email: str):
     """Interface for editing existing inspection records"""
-    st.header("✏️ Edit Existing Inspection")
-    
     # Get all submissions for selection
     db_submissions = get_submissions_from_database()
     
@@ -989,12 +986,7 @@ def main():
         layout="wide"
     )
     
-    # Header
-    st.title("🩸 Lifeblood Red Cross Australia")
-    st.header("Donor Center Equipment & Compliance Check Form")
-    st.markdown("---")
-    
-    # Check authentication
+    # Check authentication first
     is_authenticated, user_email = check_authentication()
     
     if not is_authenticated or not user_email:
@@ -1008,58 +1000,76 @@ def main():
         """)
         return
     
-    # Form Guidance - Prominent and Bold
-    st.subheader("**FORM GUIDANCE**")
-    st.warning("**IMPORTANT: Verify ALL required fields before submitting the form**")
+    # SIDEBAR - Static Elements
+    with st.sidebar:
+        # 1. Title
+        st.title("🩸 Lifeblood Red Cross Australia")
+        st.markdown("**Donor Center Equipment & Compliance Check Form**")
+        st.markdown("---")
+        
+        # 2. Form Guidance
+        # Dropdown for detailed instructions
+        st.subheader("**Form Guidance**")
+        with st.expander("**📋 How to Complete This Inspection Form**", expanded=False):
+            st.markdown("""
+            **Requirements:**
+            - Fill in the form for all **required fields**. 
+            - Any observations or issues can be added in the **Additional Notes** field.
+          
+            **Reminders:** 
+            - All submissions are recorded with your user email and time of submission in the database.
+            - If you need to submit on behalf of someone else, please override the user email in the **Advanced: Override User Email (if needed)** field.
+            """)
+        
+
+        
+        # 3. Mode Selection
+        st.subheader("**Select Mode**")
+        mode = st.radio(
+            "Choose your action:",
+            ["📝 Submit New Inspection", "✏️ Edit Existing Inspection", "📊 View All Submissions"],
+            label_visibility="collapsed"
+        )
+        st.markdown("---")
+        
+        # 4. Login Details
+        st.subheader("**Login Details**")
+        st.success(f"👋 Welcome **{user_email}**!")
+        st.caption("  ✅ Authenticated with Databricks")
+        
+        # Allow user to override email if needed (but make it less prominent)
+        with st.expander("🔧 Advanced: Override User Email (if needed)", expanded=False):
+            st.caption("⚠️ Only change this if you need to submit on behalf of someone else")
+            custom_email = st.text_input(
+                "Custom Email Address",
+                value=user_email,
+                help="This will override the detected user email for form submissions"
+            )
+            if custom_email and custom_email != user_email:
+                user_email = custom_email
+                st.warning(f"📝 Form will be submitted as: **{user_email}** (overridden)")
+            else:
+                st.info(f"📝 Form will be submitted as: **{user_email}**")
+        
+        st.markdown("---")
+        
+
     
-    # Dropdown for detailed instructions
-    with st.expander("📋 How to Complete This Inspection Form", expanded=False):
-        st.markdown("""
-        **Requirements:**
-        - Fill in the form for all **required fields**. 
-        - Any observations or issues can be added in the **Additional Notes** field.
-      
-        **Reminders:** 
-        - All submissions are recorded with your user email and time of submission in the database.
-        - If you need to submit on behalf of someone else, please override the user email in the **Advanced: Override User Email (if needed)** field.
-        """)
-    
-    st.markdown("---")
-    
-    # Show welcome message with authenticated user
-    st.success(f"👋 Welcome **{user_email}**!")
-    st.caption("✅ Authenticated with Databricks")
-    
-    # Mode selection
-    st.markdown("---")
-    mode = st.radio(
-        "**Select Mode:**",
-        ["📝 Submit New Inspection", "✏️ Edit Existing Inspection", "📊 View All Submissions"],
-        horizontal=True
-    )
-    st.markdown("---")
-    
+    # MAIN CONTENT AREA - Dynamic Content Based on Mode Selection
     if mode == "✏️ Edit Existing Inspection":
+        st.header("✏️ Edit Existing Inspection")
+        st.markdown("---")
         edit_existing_record(user_email)
         return
     elif mode == "📊 View All Submissions":
+        st.header("📊 View All Submissions")
+        st.markdown("---")
         view_all_submissions()
         return
     
     # Continue with new submission form (default mode)
-    # Allow user to override email if needed (but make it less prominent)
-    with st.expander("🔧 Advanced: Override User Email (if needed)", expanded=False):
-        st.caption("⚠️ Only change this if you need to submit on behalf of someone else")
-        custom_email = st.text_input(
-            "Custom Email Address",
-            value=user_email,
-            help="This will override the detected user email for form submissions"
-        )
-        if custom_email and custom_email != user_email:
-            user_email = custom_email
-            st.warning(f"📝 Form will be submitted as: **{user_email}** (overridden)")
-        else:
-            st.info(f"📝 Form will be submitted as: **{user_email}**")
+    st.header("📝 Submit New Inspection")
+    st.markdown("---")
     
     # Create the PowerApps-style form
     with st.form("lifeblood_inspection_form"):
@@ -1254,7 +1264,7 @@ def main():
     # Show previous submissions from database ONLY
     st.markdown("---")
     st.subheader("📋 Recent Submissions")
-    st.caption(f"Showing exact content from `{get_table_name()}` table (read-only)")
+    # st.caption(f"Showing exact content from `{get_table_name()}` table (read-only)")
     
     # Load from database only
     db_submissions = get_submissions_from_database()
