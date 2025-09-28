@@ -8,44 +8,143 @@ This Streamlit application replaces manual paper-based inspections with a digita
 - Records equipment condition checks (donation chairs, blood collection equipment, monitoring devices, safety equipment)
 - Captures donor compliance information (health screening, consent forms)
 - Prevents duplicate submissions
-- Stores all data in Unity Catalog for analysis and reporting
+- Stores all data in Unity Catalog Delta Lake for analysis and reporting
 
-## 🚀 Quick Start
+## 🚀 Deployment Guide for New Environments
 
 ### Prerequisites
-- Databricks CLI installed and configured
-- Access to a Databricks workspace with Unity Catalog
+- Databricks CLI installed and configured (`pip install databricks-cli`)
+- Access to a Databricks workspace with Unity Catalog enabled
 - SQL warehouse available for database operations
+- Permissions to create catalogs, schemas, and tables in Unity Catalog
 
-### Deployment
+### 🔧 Required Configuration Changes
 
-1. **Clone and navigate to the project:**
-   ```bash
-   git clone <repository-url>
-   cd Lifeblood_app
-   ```
+**IMPORTANT:** Before deploying, you MUST update these values for your environment:
 
-2. **Configure your Databricks profile:**
-   ```bash
-   databricks configure --profile dev
-   ```
+#### 1. **Update `databricks.yml`** - Core Configuration
+```yaml
+# Line 8-10: Update warehouse configuration
+variables:
+  warehouse_http_path:
+    default: "/sql/1.0/warehouses/YOUR_WAREHOUSE_ID"  # ⚠️ CHANGE THIS
+  warehouse_id:
+    default: "YOUR_WAREHOUSE_ID"                      # ⚠️ CHANGE THIS
 
-3. **Deploy the application:**
-   ```bash
-   databricks bundle deploy --profile dev
-   ```
+# Line 18: Update catalog name (optional)
+  catalog_name:
+    default: "your_catalog_name"                      # Optional: change from 'livr'
 
-4. **Set up the database:**
-   ```bash
-   databricks bundle run setup_database_job --profile dev
-   ```
+# Line 32-33: Update schema configuration
+resources:
+  schemas:
+    lifeblood_schema:
+      catalog_name: ${var.catalog_name}               # Will use your catalog
+      
+# Line 43 & 63: Update warehouse ID in jobs and apps
+    sql_task:
+      warehouse_id: ${var.warehouse_id}               # Uses your warehouse
+    sql_warehouse:
+      id: ${var.warehouse_id}                         # Uses your warehouse
 
-5. **Start the Streamlit app:**
-   ```bash
-   databricks bundle run lifeblood_streamlit_app --profile dev
-   ```
+# Line 57 & 79: Update user permissions
+permissions:
+  - user_name: YOUR_EMAIL@company.com                 # ⚠️ CHANGE THIS
+    level: CAN_MANAGE
+```
 
-The app will be available at the URL provided in the output.
+#### 2. **Update `resources/create_table.sql`** - Database Permissions
+```sql
+-- Lines 41-44: Update user email for permissions
+GRANT USAGE ON CATALOG livr TO `YOUR_EMAIL@company.com`;           -- ⚠️ CHANGE THIS
+GRANT USAGE ON SCHEMA livr.lifeblood TO `YOUR_EMAIL@company.com`;  -- ⚠️ CHANGE THIS
+GRANT SELECT ON TABLE livr.lifeblood.lifeblood_app TO `YOUR_EMAIL@company.com`;  -- ⚠️ CHANGE THIS
+GRANT MODIFY ON TABLE livr.lifeblood.lifeblood_app TO `YOUR_EMAIL@company.com`;  -- ⚠️ CHANGE THIS
+```
+
+### 📋 Step-by-Step Deployment
+
+#### Step 1: Get Your Warehouse ID
+```bash
+# List available warehouses
+databricks warehouses list --profile YOUR_PROFILE
+
+# Note the warehouse ID you want to use
+```
+
+#### Step 2: Clone and Configure
+```bash
+# Clone the repository
+git clone https://github.com/oliviajren/Lifeblood.git
+cd Lifeblood/Lifeblood_app
+
+# Configure Databricks CLI (if not already done)
+databricks configure --profile YOUR_PROFILE
+```
+
+#### Step 3: Update Configuration Files
+1. **Edit `databricks.yml`:**
+   - Replace `4b9b953939869799` with your warehouse ID
+   - Replace `olivia.ren@databricks.com` with your email
+   - Optionally change catalog name from `livr` to your preferred name
+
+2. **Edit `resources/create_table.sql`:**
+   - Replace `olivia.ren@databricks.com` with your email
+
+#### Step 4: Deploy with Databricks Asset Bundle (DAB)
+```bash
+# Validate configuration
+databricks bundle validate --profile YOUR_PROFILE
+
+# Deploy infrastructure and app
+databricks bundle deploy --profile YOUR_PROFILE
+
+# Create database schema and table
+databricks bundle run setup_database_job --profile YOUR_PROFILE
+
+# Start the Streamlit app
+databricks bundle run lifeblood_streamlit_app --profile YOUR_PROFILE
+```
+
+#### Step 5: Grant Service Principal Permissions
+After deployment, the app's service principal needs database permissions:
+
+```bash
+# Get the app details to find service principal ID
+databricks apps get lifeblood-form-app --profile YOUR_PROFILE
+
+# Create grant files (replace SERVICE_PRINCIPAL_ID with actual ID from above)
+echo '{"changes":[{"principal":"SERVICE_PRINCIPAL_ID","add":["USAGE"]}]}' > grants.json
+
+# Grant permissions
+databricks grants update catalog YOUR_CATALOG --json @grants.json --profile YOUR_PROFILE
+databricks grants update schema YOUR_CATALOG.lifeblood --json @grants.json --profile YOUR_PROFILE
+
+# For table permissions
+echo '{"changes":[{"principal":"SERVICE_PRINCIPAL_ID","add":["SELECT","MODIFY"]}]}' > table_grants.json
+databricks grants update table YOUR_CATALOG.lifeblood.lifeblood_app --json @table_grants.json --profile YOUR_PROFILE
+
+# Clean up
+rm grants.json table_grants.json
+```
+
+### 🎯 What is Databricks Asset Bundle (DAB)?
+
+DAB is Infrastructure-as-Code for Databricks that allows you to:
+- **Define** all resources (apps, jobs, schemas) in YAML files
+- **Deploy** consistently across environments (dev/staging/prod)
+- **Version control** your entire Databricks infrastructure
+- **Manage** permissions and configurations centrally
+
+**Key DAB Commands:**
+```bash
+databricks bundle validate    # Check configuration
+databricks bundle deploy      # Deploy/update resources  
+databricks bundle run <job>   # Execute specific jobs
+databricks bundle destroy     # Remove all resources
+```
+
+The app will be available at: `https://YOUR_APP_NAME-WORKSPACE_ID.aws.databricksapps.com`
 
 ## 📁 Project Structure
 
@@ -142,13 +241,51 @@ All form submissions are stored in Unity Catalog and can be analyzed using:
 - Notebook-based analytics
 - CSV export functionality (built into the app)
 
-## 🆘 Support
+## 🆘 Troubleshooting
 
-For technical issues:
-1. Check the app logs in Databricks workspace
-2. Verify SQL warehouse connectivity
-3. Ensure proper Unity Catalog permissions
-4. Contact your Databricks administrator
+### Common Issues and Solutions
+
+#### 1. **"App Not Available" / 502 Bad Gateway**
+- **Cause:** App failed to start or port configuration issue
+- **Solution:** 
+  ```bash
+  # Check app status
+  databricks apps get lifeblood-form-app --profile YOUR_PROFILE
+  
+  # Restart the app
+  databricks bundle run lifeblood_streamlit_app --profile YOUR_PROFILE
+  ```
+
+#### 2. **"Insufficient Permissions" Database Error**
+- **Cause:** Service principal lacks Unity Catalog permissions
+- **Solution:** Follow Step 5 in deployment guide to grant permissions
+
+#### 3. **"Warehouse ID not found" Error**
+- **Cause:** Wrong warehouse ID in configuration
+- **Solution:** 
+  ```bash
+  # List warehouses and get correct ID
+  databricks warehouses list --profile YOUR_PROFILE
+  # Update databricks.yml with correct warehouse_id
+  ```
+
+#### 4. **"Table/Schema Not Found" Error**
+- **Cause:** Database setup job not run or failed
+- **Solution:**
+  ```bash
+  # Re-run database setup
+  databricks bundle run setup_database_job --profile YOUR_PROFILE
+  ```
+
+#### 5. **User Email Shows as Service Principal ID**
+- **Cause:** User detection not working in Databricks Apps
+- **Solution:** This is expected behavior - the app will detect the actual user email when accessed via Databricks Apps URL
+
+### Getting Help
+1. Check app logs in Databricks workspace under "Apps" section
+2. Verify SQL warehouse is running and accessible
+3. Ensure Unity Catalog permissions are correctly configured
+4. Contact your Databricks administrator for workspace-level issues
 
 ## 📝 License
 
