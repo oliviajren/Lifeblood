@@ -45,3 +45,4 @@ packages = ["src/Lifeblood_app"]
 
 [project.scripts]
 main = "Lifeblood_app.main:main"
+create_lakebase_synced_table = "Lifeblood_app.lakebase_setup:main"

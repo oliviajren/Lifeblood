@@ -8,7 +8,21 @@ This Streamlit application replaces manual paper-based inspections with a digita
 - Records equipment condition checks (donation chairs, blood collection equipment, monitoring devices, safety equipment)
 - Captures donor compliance information (health screening, consent forms)
 - Prevents duplicate submissions
-- Stores all data in Unity Catalog Delta Lake for analysis and reporting
+- **NEW**: Supports both Delta Lake and Lakebase synced table backends
+- Stores data in Unity Catalog with optional real-time sync to PostgreSQL via Lakebase
+
+## 🔄 Backend Options
+
+### Delta Lake (Default)
+- Direct storage in Unity Catalog Delta Lake tables
+- Optimized for analytics and reporting
+- ACID transactions and time travel capabilities
+
+### Lakebase Synced Tables (Feature Branch)
+- Real-time synchronization to external PostgreSQL database
+- Operational access to form data via standard SQL tools
+- Continuous sync with Change Data Feed
+- Best of both worlds: analytical power + operational accessibility
 
 ## 🚀 Deployment Guide for New Environments
 
@@ -145,6 +159,62 @@ databricks bundle destroy     # Remove all resources
 ```
 
 The app will be available at: `https://YOUR_APP_NAME-WORKSPACE_ID.aws.databricksapps.com`
+
+### 🔄 Lakebase Deployment (Optional)
+
+To enable Lakebase synced tables for operational PostgreSQL access:
+
+#### Additional Prerequisites for Lakebase:
+- PostgreSQL database instance accessible from Databricks
+- Lakebase feature enabled in your Databricks workspace
+- Database credentials configured in Databricks secrets
+
+#### Lakebase Configuration Steps:
+
+1. **Update Environment Variables in `app.yml`:**
+   ```yaml
+   - name: USE_LAKEBASE
+     value: "true"
+   - name: LAKEBASE_INSTANCE
+     value: "your_lakebase_instance_name"
+   - name: POSTGRES_DATABASE
+     value: "your_postgres_database_name"
+   ```
+
+2. **Configure Lakebase Connection:**
+   ```bash
+   # This is typically done through Databricks UI:
+   # Catalog > Connections > Create Connection
+   # - Type: PostgreSQL
+   # - Name: your_lakebase_instance_name
+   # - Host, Port, Database, Credentials
+   ```
+
+3. **Deploy with Lakebase Support:**
+   ```bash
+   # Deploy the updated configuration
+   databricks bundle deploy --profile YOUR_PROFILE
+   
+   # Create the Delta table with Change Data Feed enabled
+   databricks bundle run setup_database_job --profile YOUR_PROFILE
+   
+   # Create the Lakebase synced table
+   databricks bundle run setup_lakebase_job --profile YOUR_PROFILE
+   
+   # Start the app
+   databricks bundle run lifeblood_streamlit_app --profile YOUR_PROFILE
+   ```
+
+4. **Verify Lakebase Sync:**
+   - Check the app's "Database Backend Information" section
+   - Query the PostgreSQL database directly to verify data sync
+   - Monitor sync status in Databricks Catalog UI
+
+#### Lakebase Benefits:
+- **Real-time Sync:** Form submissions appear in PostgreSQL immediately
+- **Operational Access:** Use standard PostgreSQL tools and applications
+- **BI Integration:** Connect existing BI tools directly to PostgreSQL
+- **Hybrid Architecture:** Analytics in Databricks, operations in PostgreSQL
 
 ## 📁 Project Structure
 

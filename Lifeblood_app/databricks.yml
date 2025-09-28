@@ -20,6 +20,18 @@ variables:
   table_name:
     description: "Table name for form submissions"
     default: "lifeblood_app"
+  lakebase_table_name:
+    description: "Lakebase Delta table name"
+    default: "lifeblood_app_lb"
+  synced_table_name:
+    description: "Lakebase synced table name"
+    default: "lifeblood_app_lb_synced"
+  lakebase_instance:
+    description: "Lakebase database instance name"
+    default: "lifeblood_lakebase_instance"
+  postgres_database:
+    description: "PostgreSQL database name in Lakebase"
+    default: "lifeblood_operational"
   app_port:
     description: "Port for the Databricks app"
     default: "8000"
@@ -43,14 +55,40 @@ resources:
             warehouse_id: ${var.warehouse_id}
             file:
               source: WORKSPACE
-              path: ./resources/create_table.sql
+              path: ./resources/create_lakebase_table.sql
+      permissions:
+        - user_name: olivia.ren@databricks.com
+          level: CAN_MANAGE
+    
+    setup_lakebase_job:
+      name: "lifeblood-lakebase-setup"
+      description: "Setup Lakebase synced table for operational access"
+      job_clusters:
+        - job_cluster_key: "lakebase_cluster"
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: "i3.xlarge"
+            num_workers: 1
+      tasks:
+        - task_key: create_synced_table
+          job_cluster_key: "lakebase_cluster"
+          python_wheel_task:
+            package_name: "lifeblood_app"
+            entry_point: "create_lakebase_synced_table"
+            parameters:
+              - "--catalog=${var.catalog_name}"
+              - "--schema=${var.schema_name}"
+              - "--source-table=${var.lakebase_table_name}"
+              - "--synced-table=${var.synced_table_name}"
+              - "--lakebase-instance=${var.lakebase_instance}"
+              - "--postgres-database=${var.postgres_database}"
       permissions:
         - user_name: olivia.ren@databricks.com
           level: CAN_MANAGE
 
   apps:
     lifeblood_streamlit_app:
-      name: "lifeblood-form-app"
+      name: "lifeblood-form-app-v2-lakebase"
       description: "Digital form for Lifeblood Red Cross Australia donor center equipment and compliance checks"
       source_code_path: ./src/Lifeblood_app
       permissions:

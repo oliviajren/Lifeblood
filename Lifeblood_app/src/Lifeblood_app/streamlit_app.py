@@ -28,9 +28,17 @@ def get_workspace_client():
 
 def get_table_name() -> str:
     """Get the full table name from environment variables with fallbacks"""
+    use_lakebase = os.getenv("USE_LAKEBASE", "false").lower() == "true"
+    
     catalog = os.getenv("CATALOG_NAME", "livr")
     schema = os.getenv("SCHEMA_NAME", "lifeblood")
-    table = os.getenv("TABLE_NAME", "lifeblood_app")
+    
+    if use_lakebase:
+        # Use Lakebase Delta table (not synced table for writes)
+        table = os.getenv("LAKEBASE_TABLE_NAME", "lifeblood_app_lb")
+    else:
+        # Use regular Delta table
+        table = os.getenv("TABLE_NAME", "lifeblood_app")
     
     # Handle cases where variables weren't substituted properly
     if catalog and catalog.startswith("${"):
@@ -38,9 +46,37 @@ def get_table_name() -> str:
     if schema and schema.startswith("${"):
         schema = "lifeblood"
     if table and table.startswith("${"):
-        table = "lifeblood_app"
+        table = "lifeblood_app_lb" if use_lakebase else "lifeblood_app"
     
     return f"{catalog}.{schema}.{table}"
+
+
+def get_backend_info() -> dict:
+    """Get information about the current backend configuration"""
+    use_lakebase = os.getenv("USE_LAKEBASE", "false").lower() == "true"
+    
+    if use_lakebase:
+        catalog = os.getenv("CATALOG_NAME", "livr")
+        schema = os.getenv("SCHEMA_NAME", "lifeblood")
+        synced_table = os.getenv("SYNCED_TABLE_NAME", "lifeblood_app_lb_synced")
+        synced_table_full = f"{catalog}.{schema}.{synced_table}"
+        
+        return {
+            "backend_type": "Lakebase Synced Table",
+            "delta_table": get_table_name(),
+            "synced_table": synced_table_full,
+            "lakebase_instance": os.getenv("LAKEBASE_INSTANCE", "lifeblood_lakebase_instance"),
+            "postgres_database": os.getenv("POSTGRES_DATABASE", "lifeblood_operational"),
+            "sync_mode": "Continuous",
+            "description": "Data is written to Delta table and synchronized in real-time to PostgreSQL via Lakebase"
+        }
+    else:
+        return {
+            "backend_type": "Delta Lake Table",
+            "table_name": get_table_name(),
+            "storage_format": "Delta Lake",
+            "description": "Data is stored directly in Unity Catalog Delta Lake"
+        }
 
 
 def get_current_user_email() -> Optional[str]:
@@ -435,6 +471,23 @@ def main():
     # Show welcome message with authenticated user
     st.success(f"👋 Welcome **{user_email}**!")
     st.caption("✅ Authenticated with Databricks")
+    
+    # Show backend information
+    backend_info = get_backend_info()
+    with st.expander("🗄️ Database Backend Information", expanded=False):
+        st.markdown(f"**Backend Type:** {backend_info['backend_type']}")
+        
+        if backend_info['backend_type'] == "Lakebase Synced Table":
+            st.markdown(f"**Delta Table:** `{backend_info['delta_table']}`")
+            st.markdown(f"**Synced Table:** `{backend_info['synced_table']}`")
+            st.markdown(f"**Lakebase Instance:** {backend_info['lakebase_instance']}")
+            st.markdown(f"**PostgreSQL Database:** {backend_info['postgres_database']}")
+            st.markdown(f"**Sync Mode:** {backend_info['sync_mode']}")
+            st.info("🔄 " + backend_info['description'])
+        else:
+            st.markdown(f"**Table:** `{backend_info['table_name']}`")
+            st.markdown(f"**Storage Format:** {backend_info['storage_format']}")
+            st.info("📊 " + backend_info['description'])
     
     
     # Allow user to override email if needed (but make it less prominent)

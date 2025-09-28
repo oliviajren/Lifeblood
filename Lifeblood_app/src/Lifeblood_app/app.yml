@@ -25,6 +25,16 @@ env:
     value: ${var.schema_name}
   - name: TABLE_NAME
     value: ${var.table_name}
+  - name: LAKEBASE_TABLE_NAME
+    value: ${var.lakebase_table_name}
+  - name: SYNCED_TABLE_NAME
+    value: ${var.synced_table_name}
+  - name: LAKEBASE_INSTANCE
+    value: ${var.lakebase_instance}
+  - name: POSTGRES_DATABASE
+    value: ${var.postgres_database}
+  - name: USE_LAKEBASE
+    value: "true"
   - name: PYTHONPATH
     value: "/app"
   - name: DATABRICKS_APP_PORT
