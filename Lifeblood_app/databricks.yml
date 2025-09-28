@@ -1,0 +1,89 @@
+# This is a Databricks asset bundle definition for Lifeblood_app.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: Lifeblood_app
+  uuid: b901cc3f-4ddd-48f5-9d5f-78a2ebec3598
+
+variables:
+  warehouse_http_path:
+    description: "HTTP path for the SQL warehouse"
+    default: "/sql/1.0/warehouses/4b9b953939869799"
+  warehouse_id:
+    description: "SQL warehouse ID for database operations"
+    default: "4b9b953939869799"
+  catalog_name:
+    description: "Unity Catalog name"
+    default: "livr"
+  schema_name:
+    description: "Schema name for Lifeblood data"
+    default: "lifeblood"
+  table_name:
+    description: "Table name for form submissions"
+    default: "lifeblood_app"
+  app_port:
+    description: "Port for the Databricks app"
+    default: "8000"
+
+# Artifacts not needed for Streamlit apps - dependencies handled via pyproject.toml
+
+resources:
+  schemas:
+    lifeblood_schema:
+      name: ${var.schema_name}
+      catalog_name: ${var.catalog_name}
+      comment: "Schema for Lifeblood Red Cross Australia donor center form data"
+      
+  jobs:
+    setup_database_job:
+      name: "lifeblood-database-setup"
+      description: "Setup database schema and table for Lifeblood app"
+      tasks:
+        - task_key: create_table
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              source: WORKSPACE
+              path: ./resources/create_table.sql
+      permissions:
+        - user_name: olivia.ren@databricks.com
+          level: CAN_MANAGE
+
+  apps:
+    lifeblood_streamlit_app:
+      name: "lifeblood-form-app"
+      description: "Digital form for Lifeblood Red Cross Australia donor center equipment and compliance checks"
+      source_code_path: ./src/Lifeblood_app
+      permissions:
+        - user_name: olivia.ren@databricks.com
+          level: CAN_MANAGE
+      resources:
+        - name: sql-warehouse
+          description: "SQL warehouse for database operations"
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://e2-demo-field-eng.cloud.databricks.com
+      root_path: /Workspace/Users/olivia.ren@databricks.com/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: olivia.ren@databricks.com
+        level: CAN_MANAGE
+
+  # prod:
+  #   mode: production
+  #   workspace:
+  #     host: https://e2-demo-field-eng.cloud.databricks.com
+  #     # We explicitly deploy to /Workspace/Users/olivia.ren@databricks.com to make sure we only have a single copy.
+  #     root_path: /Workspace/Users/olivia.ren@databricks.com/.bundle/${bundle.name}/${bundle.target}
+  #   permissions:
+  #     - user_name: olivia.ren@databricks.com
+  #       level: CAN_MANAGE

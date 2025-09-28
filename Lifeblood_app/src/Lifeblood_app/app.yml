@@ -1,0 +1,31 @@
+# Databricks App Configuration for Streamlit
+# This file configures how the Streamlit app runs in Databricks Apps
+
+command:
+  - "python"
+  - "-m" 
+  - "streamlit"
+  - "run"
+  - "streamlit_app.py"
+  - "--server.port=8000"
+  - "--server.address=0.0.0.0"
+  - "--server.headless=true"
+  - "--browser.gatherUsageStats=false"
+  - "--server.enableCORS=false"
+  - "--server.enableXsrfProtection=false"
+
+env:
+  - name: DATABRICKS_WAREHOUSE_HTTP_PATH
+    value: ${var.warehouse_http_path}
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: ${var.warehouse_id}
+  - name: CATALOG_NAME
+    value: ${var.catalog_name}
+  - name: SCHEMA_NAME
+    value: ${var.schema_name}
+  - name: TABLE_NAME
+    value: ${var.table_name}
+  - name: PYTHONPATH
+    value: "/app"
+  - name: DATABRICKS_APP_PORT
+    value: ${var.app_port}
