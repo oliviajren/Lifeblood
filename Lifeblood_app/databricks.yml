@@ -1,13 +1,10 @@
 # This is a Databricks asset bundle definition for Lifeblood_app.
 # See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
 bundle:
-  name: Lifeblood_app
+  name: Lifeblood_app_v1
   uuid: b901cc3f-4ddd-48f5-9d5f-78a2ebec3598
 
 variables:
-  warehouse_http_path:
-    description: "HTTP path for the SQL warehouse"
-    default: "/sql/1.0/warehouses/4b9b953939869799"
   warehouse_id:
     description: "SQL warehouse ID for database operations"
     default: "4b9b953939869799"
@@ -17,12 +14,6 @@ variables:
   schema_name:
     description: "Schema name for Lifeblood data"
     default: "lifeblood"
-  table_name:
-    description: "Table name for form submissions"
-    default: "lifeblood_app"
-  app_port:
-    description: "Port for the Databricks app"
-    default: "8000"
 
 # Artifacts not needed for Streamlit apps - dependencies handled via pyproject.toml
 
@@ -56,6 +47,9 @@ resources:
       permissions:
         - user_name: olivia.ren@databricks.com
           level: CAN_MANAGE
+        # Add more users here as needed, or use groups for broader access
+        # Example: - group_name: "lifeblood-users"
+        #          level: CAN_USE
       resources:
         - name: sql-warehouse
           description: "SQL warehouse for database operations"

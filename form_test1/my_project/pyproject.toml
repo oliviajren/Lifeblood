@@ -1,8 +1,13 @@
 [project]
-name = "my_project"
+name = "lifeblood_equipment_check"
 version = "0.0.1"
 authors = [{ name = "olivia.ren@databricks.com" }]
 requires-python = ">= 3.11"
+dependencies = [
+    "streamlit>=1.28.0",
+    "pandas>=2.0.0",
+    "databricks-sql-connector>=3.0.0",
+]
 
 [project.optional-dependencies]
 dev = [

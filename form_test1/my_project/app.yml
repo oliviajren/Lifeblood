@@ -1,0 +1,15 @@
+name: lifeblood-form-app
+description: "Streamlit app for Lifeblood Red Cross Australia equipment checks form"
+
+command:
+  - python
+  - -m
+  - streamlit
+  - run
+  - app.py
+  - --server.port=8501
+  - --server.address=0.0.0.0
+
+env:
+  - name: SQL_WAREHOUSE_URL
+    value: "/sql/1.0/warehouses/148ccb90800933a1"

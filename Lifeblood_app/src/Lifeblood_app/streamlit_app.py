@@ -1,3 +1,22 @@
+"""
+Lifeblood Red Cross Australia - Donor Center Inspection Form
+Databricks App with Service Principal Proxy Permission Model
+
+PERMISSION MODEL:
+- App Service Principal acts as a proxy for all database operations
+- Users authenticate through the app (via Databricks Apps authentication)
+- App performs all database operations on behalf of authenticated users
+- No individual database permissions needed for users
+- Users only need CAN_USE permission on the Databricks App itself
+
+SECURITY FLOW:
+1. User accesses the app URL
+2. Databricks Apps authenticates the user
+3. App retrieves user identity from request headers
+4. App service principal performs database operations
+5. User actions are logged with their identity for audit purposes
+"""
+
 import streamlit as st
 import pandas as pd
 from datetime import datetime

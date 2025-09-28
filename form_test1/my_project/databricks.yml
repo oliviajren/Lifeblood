@@ -13,6 +13,18 @@ include:
   - resources/*.yml
   - resources/*/*.yml
 
+resources:
+  apps:
+    lifeblood_form_app:
+      name: lifeblood-form-app
+      description: "Streamlit app for Lifeblood Red Cross Australia equipment checks form"
+      source_code_path: src
+
+variables:
+  sql_warehouse_url:
+    description: "SQL Warehouse URL for Lifeblood equipment check app"
+    default: "/sql/1.0/warehouses/148ccb90800933a1"
+
 targets:
   dev:
     # The default target uses 'mode: development' to create a development copy.

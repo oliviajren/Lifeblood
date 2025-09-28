@@ -37,8 +37,23 @@ TBLPROPERTIES (
 )
 COMMENT 'Lifeblood Red Cross Australia donor center inspection and compliance form submissions';
 
--- Grant permissions to the app owner
+-- DATABRICKS APPS PERMISSION MODEL: App Service Principal Proxy Pattern
+-- The app service principal acts as a proxy for all authenticated users
+-- Users authenticate through the app, and the app performs database operations on their behalf
+-- This eliminates the need to grant individual database permissions to each user
+
+-- Grant permissions to the app owner (for development and management)
 GRANT USAGE ON CATALOG livr TO `olivia.ren@databricks.com`;
 GRANT USAGE ON SCHEMA livr.lifeblood TO `olivia.ren@databricks.com`;
 GRANT SELECT ON TABLE livr.lifeblood.lifeblood_app TO `olivia.ren@databricks.com`;
 GRANT MODIFY ON TABLE livr.lifeblood.lifeblood_app TO `olivia.ren@databricks.com`;
+
+-- Grant comprehensive permissions to the app service principal (proxy for all app users)
+-- The app service principal needs full access to perform operations on behalf of authenticated users
+GRANT USAGE ON CATALOG livr TO `33dae364-1f13-4996-9548-00be30f5d36a`;
+GRANT USAGE ON SCHEMA livr.lifeblood TO `33dae364-1f13-4996-9548-00be30f5d36a`;
+GRANT SELECT ON TABLE livr.lifeblood.lifeblood_app TO `33dae364-1f13-4996-9548-00be30f5d36a`;
+GRANT MODIFY ON TABLE livr.lifeblood.lifeblood_app TO `33dae364-1f13-4996-9548-00be30f5d36a`;
+
+-- Additional permissions for the service principal to manage the table structure if needed
+GRANT CREATE ON SCHEMA livr.lifeblood TO `33dae364-1f13-4996-9548-00be30f5d36a`;

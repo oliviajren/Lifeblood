@@ -16,16 +16,16 @@ command:
 
 env:
   - name: DATABRICKS_WAREHOUSE_HTTP_PATH
-    value: ${var.warehouse_http_path}
+    value: "/sql/1.0/warehouses/4b9b953939869799"
   - name: DATABRICKS_WAREHOUSE_ID
-    value: ${var.warehouse_id}
+    value: "4b9b953939869799"
   - name: CATALOG_NAME
-    value: ${var.catalog_name}
+    value: "livr"
   - name: SCHEMA_NAME
-    value: ${var.schema_name}
+    value: "lifeblood"
   - name: TABLE_NAME
-    value: ${var.table_name}
+    value: "lifeblood_app"
   - name: PYTHONPATH
     value: "/app"
   - name: DATABRICKS_APP_PORT
-    value: ${var.app_port}
+    value: "8000"

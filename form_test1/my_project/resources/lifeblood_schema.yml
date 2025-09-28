@@ -1,0 +1,5 @@
+resources:
+  schemas:
+    lifeblood_schema:
+      name: lifeblood
+      catalog_name: livr
