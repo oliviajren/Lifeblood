@@ -407,6 +407,581 @@ def insert_form_data(form_date, inspector_name, donation_chairs_condition, blood
         return False
 
 
+def get_submissions_from_database():
+    """Retrieve all submissions from the database"""
+    try:
+        table_name = get_table_name()
+        
+        # Query to get all submissions ordered by submission time (newest first)
+        select_sql = f"""
+        SELECT 
+            id,
+            form_date,
+            inspector_name,
+            user_email,
+            submission_time,
+            donation_chairs_condition,
+            blood_collection_equipment_condition,
+            monitoring_devices_condition,
+            safety_equipment_condition,
+            donor_name,
+            donor_contact_number,
+            donor_health_screening_completed,
+            donor_consent_form_completed,
+            notes,
+            created_at,
+            last_modified_time,
+            last_modified_by,
+            edit_reason
+        FROM {table_name}
+        ORDER BY submission_time DESC
+        """
+        
+        # Execute the query
+        result = execute_sql_query(select_sql)
+        
+        if result and hasattr(result, 'data_array') and result.data_array:
+            # Convert result to list of dictionaries
+            submissions = []
+            for row in result.data_array:
+                submission = {
+                    'id': row[0],
+                    'form_date': row[1],
+                    'inspector_name': row[2],
+                    'user_email': row[3],
+                    'submission_time': row[4],
+                    'donation_chairs_condition': row[5],
+                    'blood_collection_equipment_condition': row[6],
+                    'monitoring_devices_condition': row[7],
+                    'safety_equipment_condition': row[8],
+                    'donor_name': row[9],
+                    'donor_contact_number': row[10],
+                    'donor_health_screening_completed': row[11],
+                    'donor_consent_form_completed': row[12],
+                    'notes': row[13],
+                    'created_at': row[14],
+                    'last_modified_time': row[15] if len(row) > 15 else None,
+                    'last_modified_by': row[16] if len(row) > 16 else None,
+                    'edit_reason': row[17] if len(row) > 17 else None
+                }
+                submissions.append(submission)
+            
+            return submissions
+        else:
+            return []
+            
+    except Exception as e:
+        st.error(f"Error retrieving submissions from database: {e}")
+        return []
+
+
+def update_existing_record(record_id, form_date, inspector_name, donation_chairs_condition,
+                          blood_collection_equipment_condition, monitoring_devices_condition,
+                          safety_equipment_condition, donor_name, donor_contact_number,
+                          donor_health_screening_completed, donor_consent_form_completed,
+                          notes, edit_reason, modified_by):
+    """Update an existing record in the database with audit trail"""
+    try:
+        table_name = get_table_name()
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Escape strings to prevent SQL injection
+        escaped_inspector_name = inspector_name.replace("'", "''")
+        escaped_donor_name = donor_name.replace("'", "''")
+        escaped_donor_contact = donor_contact_number.replace("'", "''")
+        escaped_notes = notes.replace("'", "''") if notes else ""
+        escaped_edit_reason = edit_reason.replace("'", "''")
+        escaped_modified_by = modified_by.replace("'", "''")
+        
+        # Prepare the UPDATE statement
+        update_sql = f"""
+        UPDATE {table_name} 
+        SET 
+            form_date = '{form_date}',
+            inspector_name = '{escaped_inspector_name}',
+            donation_chairs_condition = '{donation_chairs_condition}',
+            blood_collection_equipment_condition = '{blood_collection_equipment_condition}',
+            monitoring_devices_condition = '{monitoring_devices_condition}',
+            safety_equipment_condition = '{safety_equipment_condition}',
+            donor_name = '{escaped_donor_name}',
+            donor_contact_number = '{escaped_donor_contact}',
+            donor_health_screening_completed = {str(donor_health_screening_completed).lower()},
+            donor_consent_form_completed = {str(donor_consent_form_completed).lower()},
+            notes = '{escaped_notes}',
+            last_modified_time = '{current_time}',
+            last_modified_by = '{escaped_modified_by}',
+            edit_reason = '{escaped_edit_reason}'
+        WHERE id = {record_id}
+        """
+        
+        # Execute the query
+        result = execute_sql_query(update_sql)
+        
+        if result is not None:
+            # Log the edit for audit purposes
+            st.info(f"📝 Record ID {record_id} updated by {modified_by} at {current_time}")
+            st.info(f"📋 Edit reason: {edit_reason}")
+            return True
+        else:
+            return False
+            
+    except Exception as e:
+        st.error(f"Error updating record: {e}")
+        return False
+
+
+def view_all_submissions():
+    """Display all submissions in exact raw table format"""
+    st.header("📊 All Inspection Submissions")
+    st.caption(f"Showing exact content from `{get_table_name()}` table (read-only)")
+    
+    # Get submissions from database
+    db_submissions = get_submissions_from_database()
+    
+    if db_submissions:
+        st.info(f"📊 Found {len(db_submissions)} records in database table")
+        
+        # Display exact raw table content - all columns as they appear in the database
+        raw_data = []
+        for submission in db_submissions:
+            raw_data.append({
+                'id': submission['id'],
+                'form_date': submission['form_date'],
+                'inspector_name': submission['inspector_name'],
+                'user_email': submission['user_email'],
+                'submission_time': submission['submission_time'],
+                'donation_chairs_condition': submission['donation_chairs_condition'],
+                'blood_collection_equipment_condition': submission['blood_collection_equipment_condition'],
+                'monitoring_devices_condition': submission['monitoring_devices_condition'],
+                'safety_equipment_condition': submission['safety_equipment_condition'],
+                'donor_name': submission['donor_name'],
+                'donor_contact_number': submission['donor_contact_number'],
+                'donor_health_screening_completed': 'Yes' if submission['donor_health_screening_completed'] else 'No',
+                'donor_consent_form_completed': 'Yes' if submission['donor_consent_form_completed'] else 'No',
+                'notes': submission['notes'],
+                'created_at': submission['created_at'],
+                'last_modified_time': submission['last_modified_time'],
+                'last_modified_by': submission['last_modified_by'],
+                'edit_reason': submission['edit_reason']
+            })
+        
+        # Convert to DataFrame and display with exact column names from database
+        df_raw = pd.DataFrame(raw_data)
+        
+        st.dataframe(
+            df_raw,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "id": st.column_config.NumberColumn("ID", width="small"),
+                "form_date": st.column_config.DateColumn("Form Date", width="medium"),
+                "inspector_name": st.column_config.TextColumn("Inspector Name", width="medium"),
+                "user_email": st.column_config.TextColumn("User Email", width="medium"),
+                "submission_time": st.column_config.DatetimeColumn("Submission Time", width="medium"),
+                "donation_chairs_condition": st.column_config.TextColumn("Donation Chairs", width="medium"),
+                "blood_collection_equipment_condition": st.column_config.TextColumn("Blood Collection Equip", width="medium"),
+                "monitoring_devices_condition": st.column_config.TextColumn("Monitoring Devices", width="medium"),
+                "safety_equipment_condition": st.column_config.TextColumn("Safety Equipment", width="medium"),
+                "donor_name": st.column_config.TextColumn("Donor Name", width="medium"),
+                "donor_contact_number": st.column_config.TextColumn("Donor Contact", width="medium"),
+                "donor_health_screening_completed": st.column_config.TextColumn("Health Screening", width="small"),
+                "donor_consent_form_completed": st.column_config.TextColumn("Consent Form", width="small"),
+                "notes": st.column_config.TextColumn("Notes", width="large"),
+                "created_at": st.column_config.DatetimeColumn("Created At", width="medium"),
+                "last_modified_time": st.column_config.DatetimeColumn("Last Modified", width="medium"),
+                "last_modified_by": st.column_config.TextColumn("Modified By", width="medium"),
+                "edit_reason": st.column_config.TextColumn("Edit Reason", width="large")
+            }
+        )
+        
+        # Show table info
+        st.markdown("**Table Information:**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Records", len(db_submissions))
+        with col2:
+            modified_records = sum(1 for s in db_submissions if s.get('last_modified_time'))
+            st.metric("Modified Records", modified_records)
+        with col3:
+            unique_users = len(set(s['user_email'] for s in db_submissions))
+            st.metric("Unique Users", unique_users)
+    else:
+        st.info("📝 No submissions found.")
+        st.caption(f"Data will be stored in `{get_table_name()}` table")
+
+
+def show_record_comparison(original_record, updated_record):
+    """Display before and after comparison of edited record"""
+    st.markdown("### 📊 Record Changes Comparison")
+    st.info("Below is a detailed comparison showing what changed in this record.")
+    
+    # Create comparison data
+    comparison_data = []
+    
+    # Define fields to compare with user-friendly names
+    fields_to_compare = {
+        'form_date': 'Form Date',
+        'inspector_name': 'Inspector Name',
+        'donation_chairs_condition': 'Donation Chairs Condition',
+        'blood_collection_equipment_condition': 'Blood Collection Equipment',
+        'monitoring_devices_condition': 'Monitoring Devices Condition',
+        'safety_equipment_condition': 'Safety Equipment Condition',
+        'donor_name': 'Donor Name',
+        'donor_contact_number': 'Donor Contact Number',
+        'donor_health_screening_completed': 'Health Screening Completed',
+        'donor_consent_form_completed': 'Consent Form Completed',
+        'notes': 'Notes'
+    }
+    
+    # Compare each field
+    for field_key, field_name in fields_to_compare.items():
+        original_value = original_record.get(field_key, '')
+        updated_value = updated_record.get(field_key, '')
+        
+        # Handle None values
+        if original_value is None:
+            original_value = ''
+        if updated_value is None:
+            updated_value = ''
+        
+        # Convert boolean values to readable format
+        # Handle both actual booleans and string representations
+        if isinstance(original_value, bool):
+            original_value = 'Yes' if original_value else 'No'
+        elif str(original_value).lower() in ['true', 'false']:
+            original_value = 'Yes' if str(original_value).lower() == 'true' else 'No'
+        
+        if isinstance(updated_value, bool):
+            updated_value = 'Yes' if updated_value else 'No'
+        elif str(updated_value).lower() in ['true', 'false']:
+            updated_value = 'Yes' if str(updated_value).lower() == 'true' else 'No'
+        
+        # Convert to string for comparison
+        original_str = str(original_value)
+        updated_str = str(updated_value)
+        
+        # Determine if changed
+        changed = original_str != updated_str
+        change_indicator = "🔄 CHANGED" if changed else "✅ No Change"
+        
+        comparison_data.append({
+            'Field': field_name,
+            'Before': original_str,
+            'After': updated_str,
+            'Status': change_indicator
+        })
+    
+    # Display comparison table
+    df_comparison = pd.DataFrame(comparison_data)
+    
+    st.dataframe(
+        df_comparison,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Field": st.column_config.TextColumn("Field Name", width="medium"),
+            "Before": st.column_config.TextColumn("Before (Original)", width="large"),
+            "After": st.column_config.TextColumn("After (Updated)", width="large"),
+            "Status": st.column_config.TextColumn("Change Status", width="medium")
+        }
+    )
+    
+    # Show audit information
+    st.markdown("### 📋 Audit Information")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Record ID", updated_record['id'])
+    with col2:
+        st.metric("Modified By", updated_record['last_modified_by'])
+    with col3:
+        st.metric("Modified At", updated_record['last_modified_time'])
+    
+    # Show edit reason
+    if updated_record.get('edit_reason'):
+        st.markdown("**Edit Reason:**")
+        st.info(updated_record['edit_reason'])
+    
+    # Show summary of changes
+    changed_fields = [item for item in comparison_data if "CHANGED" in item['Status']]
+    if changed_fields:
+        st.markdown(f"**Summary:** {len(changed_fields)} field(s) were modified in this update.")
+        with st.expander("📝 Changed Fields Summary", expanded=False):
+            for field in changed_fields:
+                st.write(f"• **{field['Field']}**: '{field['Before']}' → '{field['After']}'")
+    else:
+        st.warning("⚠️ No fields were actually changed in this update.")
+
+
+def edit_existing_record(user_email: str):
+    """Interface for editing existing inspection records"""
+    st.header("✏️ Edit Existing Inspection")
+    
+    # Get all submissions for selection
+    db_submissions = get_submissions_from_database()
+    
+    if not db_submissions:
+        st.info("📝 No existing submissions found to edit.")
+        return
+    
+    # Create selection options
+    selection_options = []
+    for submission in db_submissions:
+        option_text = f"ID {submission['id']} - {submission['form_date']} - {submission['inspector_name']} - {submission['donor_name']}"
+        selection_options.append((option_text, submission))
+    
+    # Record selection
+    st.subheader("1️⃣ Select Record to Edit")
+    selected_option = st.selectbox(
+        "Choose an inspection record to edit:",
+        options=[opt[0] for opt in selection_options],
+        help="Records are shown as: ID - Date - Inspector - Donor Name"
+    )
+    
+    if selected_option:
+        # Find the selected submission
+        selected_submission = next(opt[1] for opt in selection_options if opt[0] == selected_option)
+        
+        st.success(f"✅ Selected Record ID: {selected_submission['id']}")
+        
+        # Show original submission details
+        with st.expander("📋 Original Submission Details", expanded=False):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Original Submitted By:** {selected_submission['user_email']}")
+                st.write(f"**Original Submission Time:** {selected_submission['submission_time']}")
+                st.write(f"**Form Date:** {selected_submission['form_date']}")
+                st.write(f"**Inspector:** {selected_submission['inspector_name']}")
+            with col2:
+                st.write(f"**Donor Name:** {selected_submission['donor_name']}")
+                st.write(f"**Donor Contact:** {selected_submission['donor_contact_number']}")
+                st.write(f"**Health Screening:** {'✅ Complete' if selected_submission['donor_health_screening_completed'] else '❌ Incomplete'}")
+                st.write(f"**Consent Form:** {'✅ Complete' if selected_submission['donor_consent_form_completed'] else '❌ Incomplete'}")
+        
+        # Edit form
+        st.subheader("2️⃣ Edit Record")
+        st.warning("⚠️ **Important:** You are editing an existing record. Changes will be tracked for audit purposes.")
+        
+        # Create the edit form with pre-populated values - matching original form layout
+        with st.form("edit_inspection_form"):
+            st.subheader("🏥 Lifeblood Donor Center Inspection & Compliance Form")
+            
+            # Top section: Date and Inspector
+            st.markdown("### 📅 Form Information")
+            col_date, col_inspector = st.columns(2)
+            
+            with col_date:
+                form_date = st.date_input(
+                    "Inspection Date *",
+                    value=pd.to_datetime(selected_submission['form_date']).date(),
+                    help="Select the date for this inspection"
+                )
+            
+            with col_inspector:
+                inspector_name = st.text_input(
+                    "Inspector Name *",
+                    value=selected_submission['inspector_name'],
+                    placeholder="Enter inspector's full name",
+                    help="Name of the person conducting this inspection"
+                )
+            
+            st.markdown("---")
+            
+            # Two-column layout: Equipment (Left) and Donor Compliance (Right)
+            col_equipment, col_donor = st.columns(2)
+            
+            # LEFT COLUMN: Equipment Status Check
+            with col_equipment:
+                st.markdown("### 🔧 Equipment Status Check")
+                st.markdown("*Check the condition of each equipment type*")
+                
+                condition_options = ["Good", "Needs Attention", "Out of Service"]
+                
+                # Find current index for each condition
+                chairs_index = condition_options.index(selected_submission['donation_chairs_condition']) if selected_submission['donation_chairs_condition'] in condition_options else 0
+                blood_index = condition_options.index(selected_submission['blood_collection_equipment_condition']) if selected_submission['blood_collection_equipment_condition'] in condition_options else 0
+                monitoring_index = condition_options.index(selected_submission['monitoring_devices_condition']) if selected_submission['monitoring_devices_condition'] in condition_options else 0
+                safety_index = condition_options.index(selected_submission['safety_equipment_condition']) if selected_submission['safety_equipment_condition'] in condition_options else 0
+                
+                donation_chairs_condition = st.selectbox(
+                    "Donation Chairs *",
+                    options=condition_options,
+                    index=chairs_index,
+                    help="Condition of donor chairs and seating equipment"
+                )
+                
+                blood_collection_equipment_condition = st.selectbox(
+                    "Blood Collection Equipment *",
+                    options=condition_options,
+                    index=blood_index,
+                    help="Condition of collection bags, tubing, needles, and related equipment"
+                )
+                
+                monitoring_devices_condition = st.selectbox(
+                    "Monitoring Devices *",
+                    options=condition_options,
+                    index=monitoring_index,
+                    help="Condition of blood pressure monitors, scales, and other monitoring equipment"
+                )
+                
+                safety_equipment_condition = st.selectbox(
+                    "Safety Equipment *",
+                    options=condition_options,
+                    index=safety_index,
+                    help="Condition of emergency equipment, first aid supplies, and safety devices"
+                )
+            
+            # RIGHT COLUMN: Donor Compliance Check
+            with col_donor:
+                st.markdown("### 🩸 Donor Compliance Check")
+                st.markdown("*Verify donor information and compliance*")
+                
+                donor_name = st.text_input(
+                    "Donor Name *",
+                    value=selected_submission['donor_name'],
+                    placeholder="Enter donor's full name",
+                    help="Full name of the donor being processed"
+                )
+                
+                donor_contact_number = st.text_input(
+                    "Contact Number *",
+                    value=selected_submission['donor_contact_number'],
+                    placeholder="Enter donor's contact number (numbers only)",
+                    help="Donor's primary contact number (numbers only, no spaces or special characters)"
+                )
+                
+                # Validate that contact number contains only digits
+                if donor_contact_number and not donor_contact_number.isdigit():
+                    st.error("⚠️ Contact number must contain only numbers (0-9)")
+                
+                # Convert boolean values to Yes/No for dropdown
+                health_screening_value = "Yes" if selected_submission['donor_health_screening_completed'] else "No"
+                consent_form_value = "Yes" if selected_submission['donor_consent_form_completed'] else "No"
+                
+                donor_health_screening_completed = st.selectbox(
+                    "Health Screening Completed *",
+                    options=["Yes", "No"],
+                    index=0 if health_screening_value == "Yes" else 1,
+                    help="Has the donor health screening been completed?"
+                )
+                
+                donor_consent_form_completed = st.selectbox(
+                    "Consent Form Completed *",
+                    options=["Yes", "No"],
+                    index=0 if consent_form_value == "Yes" else 1,
+                    help="Has the donor consent form been completed and signed?"
+                )
+            
+            # Bottom section: Notes
+            st.markdown("---")
+            st.markdown("### 📝 Additional Notes")
+            notes = st.text_area(
+                "Additional observations or notes (optional):",
+                value=selected_submission['notes'] or "",
+                placeholder="Enter any additional notes, observations, or issues that need attention...",
+                height=100
+            )
+            
+            # Edit reason (for audit trail)
+            st.markdown("---")
+            st.markdown("### 📋 Edit Information")
+            edit_reason = st.text_area(
+                "Reason for Edit *",
+                placeholder="Please explain why this record is being modified (required for audit trail)",
+                help="This information will be stored for audit purposes",
+                height=80
+            )
+            
+            # Submit button
+            submitted = st.form_submit_button("💾 Update Record", type="primary")
+            
+            if submitted:
+                # Validation
+                errors = []
+                
+                if not inspector_name.strip():
+                    errors.append("Inspector Name is required")
+                
+                if not donation_chairs_condition:
+                    errors.append("Donation Chairs condition must be selected")
+                if not blood_collection_equipment_condition:
+                    errors.append("Blood Collection Equipment condition must be selected")
+                if not monitoring_devices_condition:
+                    errors.append("Monitoring Devices condition must be selected")
+                if not safety_equipment_condition:
+                    errors.append("Safety Equipment condition must be selected")
+                
+                if not donor_name.strip():
+                    errors.append("Donor Name is required")
+                if not donor_contact_number.strip():
+                    errors.append("Donor Contact Number is required")
+                elif not donor_contact_number.isdigit():
+                    errors.append("Donor Contact Number must contain only numbers")
+                elif len(donor_contact_number) < 8 or len(donor_contact_number) > 15:
+                    errors.append("Donor Contact Number must be between 8 and 15 digits")
+                
+                if not edit_reason.strip():
+                    errors.append("Reason for Edit is required")
+                
+                if errors:
+                    st.error("❌ Please fix the following errors:")
+                    for error in errors:
+                        st.error(f"• {error}")
+                else:
+                    # Convert Yes/No back to boolean for database storage
+                    health_screening_bool = (donor_health_screening_completed == "Yes")
+                    consent_form_bool = (donor_consent_form_completed == "Yes")
+                    
+                    # Update the record
+                    success = update_existing_record(
+                        record_id=selected_submission['id'],
+                        form_date=form_date,
+                        inspector_name=inspector_name,
+                        donation_chairs_condition=donation_chairs_condition,
+                        blood_collection_equipment_condition=blood_collection_equipment_condition,
+                        monitoring_devices_condition=monitoring_devices_condition,
+                        safety_equipment_condition=safety_equipment_condition,
+                        donor_name=donor_name,
+                        donor_contact_number=donor_contact_number,
+                        donor_health_screening_completed=health_screening_bool,
+                        donor_consent_form_completed=consent_form_bool,
+                        notes=notes,
+                        edit_reason=edit_reason,
+                        modified_by=user_email
+                    )
+                    
+                    if success:
+                        st.success("✅ Record updated successfully!")
+                        
+                        # Show before and after comparison
+                        show_record_comparison(
+                            original_record=selected_submission,
+                            updated_record={
+                                'id': selected_submission['id'],
+                                'form_date': str(form_date),
+                                'inspector_name': inspector_name,
+                                'donation_chairs_condition': donation_chairs_condition,
+                                'blood_collection_equipment_condition': blood_collection_equipment_condition,
+                                'monitoring_devices_condition': monitoring_devices_condition,
+                                'safety_equipment_condition': safety_equipment_condition,
+                                'donor_name': donor_name,
+                                'donor_contact_number': donor_contact_number,
+                                'donor_health_screening_completed': health_screening_bool,
+                                'donor_consent_form_completed': consent_form_bool,
+                                'notes': notes,
+                                'edit_reason': edit_reason,
+                                'last_modified_by': user_email,
+                                'last_modified_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            }
+                        )
+                        
+                        # Add refresh info after showing comparison
+                        st.markdown("---")
+                        st.info("💡 To edit another record, please refresh the page or change the mode selection above.")
+                    else:
+                        st.error("❌ Failed to update record. Please try again.")
+
+
 def main():
     st.set_page_config(
         page_title="Lifeblood Red Cross Australia - Donor Center Check Form",
@@ -455,7 +1030,23 @@ def main():
     st.success(f"👋 Welcome **{user_email}**!")
     st.caption("✅ Authenticated with Databricks")
     
+    # Mode selection
+    st.markdown("---")
+    mode = st.radio(
+        "**Select Mode:**",
+        ["📝 Submit New Inspection", "✏️ Edit Existing Inspection", "📊 View All Submissions"],
+        horizontal=True
+    )
+    st.markdown("---")
     
+    if mode == "✏️ Edit Existing Inspection":
+        edit_existing_record(user_email)
+        return
+    elif mode == "📊 View All Submissions":
+        view_all_submissions()
+        return
+    
+    # Continue with new submission form (default mode)
     # Allow user to override email if needed (but make it less prominent)
     with st.expander("🔧 Advanced: Override User Email (if needed)", expanded=False):
         st.caption("⚠️ Only change this if you need to submit on behalf of someone else")
@@ -663,96 +1254,78 @@ def main():
     # Show previous submissions from database ONLY
     st.markdown("---")
     st.subheader("📋 Recent Submissions")
-    st.caption(f"Showing latest submissions from `{get_table_name()}`")
+    st.caption(f"Showing exact content from `{get_table_name()}` table (read-only)")
     
     # Load from database only
-    db_submissions = load_recent_submissions_from_db()
+    db_submissions = get_submissions_from_database()
     
     if db_submissions:
-        st.info(f"📊 Loaded {len(db_submissions)} submissions from database")
-        # Convert submissions to DataFrame for better display
-        recent_submissions = db_submissions[-10:]  # Show last 10 submissions
+        st.info(f"📊 Found {len(db_submissions)} records in database table")
         
-        if recent_submissions:
-            # Create DataFrame
-            df_data = []
-            for i, submission in enumerate(reversed(recent_submissions), 1):
-                df_data.append({
-                    '#': i,
-                    'Form Date': str(submission['form_date']),
-                    'Inspector': submission['inspector_name'],
-                    'Donor Name': submission['donor_name'],
-                    'Equipment Status': f"Chairs: {submission['donation_chairs_condition']}, Collection: {submission['blood_collection_equipment_condition']}",
-                    'Compliance': f"Screening: {'✅' if submission['donor_health_screening_completed'] else '❌'}, Consent: {'✅' if submission['donor_consent_form_completed'] else '❌'}",
-                    'Submitted By': submission['user_email'],
-                    'Submission Time': submission['submission_time'][:19].replace('T', ' '),
-                    'Notes': submission['notes'] if submission['notes'] else "—"
-                })
-            
-            df = pd.DataFrame(df_data)
-            
-            # Display as interactive table
-            st.dataframe(
-                df,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "#": st.column_config.NumberColumn("ID", width="small"),
-                    "Form Date": st.column_config.DateColumn("Date", width="small"),
-                    "Inspector": st.column_config.TextColumn("Inspector", width="medium"),
-                    "Donor Name": st.column_config.TextColumn("Donor", width="medium"),
-                    "Equipment Status": st.column_config.TextColumn("Equipment", width="large"),
-                    "Compliance": st.column_config.TextColumn("Compliance", width="medium"),
-                    "Submitted By": st.column_config.TextColumn("User", width="medium"),
-                    "Submission Time": st.column_config.DatetimeColumn("Submitted At", width="medium"),
-                    "Notes": st.column_config.TextColumn("Notes", width="large")
-                }
-            )
-            
-            # Show summary statistics
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                total_submissions = len(db_submissions)
-                st.metric("Total Inspections", total_submissions)
-            with col2:
-                good_equipment = sum(1 for s in db_submissions if 
-                                   all(cond == "Good" for cond in [
-                                       s['donation_chairs_condition'],
-                                       s['blood_collection_equipment_condition'],
-                                       s['monitoring_devices_condition'],
-                                       s['safety_equipment_condition']
-                                   ]))
-                st.metric("All Equipment Good", f"{good_equipment}/{total_submissions}")
-            with col3:
-                compliance_complete = sum(1 for s in db_submissions if 
-                                        s['donor_health_screening_completed'] and 
-                                        s['donor_consent_form_completed'])
-                st.metric("Full Compliance", f"{compliance_complete}/{total_submissions}")
-            
-            # Option to download data as CSV
-            csv_data = pd.DataFrame([{
-                'form_date': s['form_date'],
-                'inspector_name': s['inspector_name'],
-                'user_email': s['user_email'],
-                'submission_time': s['submission_time'],
-                'donation_chairs_condition': s['donation_chairs_condition'],
-                'blood_collection_equipment_condition': s['blood_collection_equipment_condition'],
-                'monitoring_devices_condition': s['monitoring_devices_condition'],
-                'safety_equipment_condition': s['safety_equipment_condition'],
-                'donor_name': s['donor_name'],
-                'donor_contact_number': s['donor_contact_number'],
-                'donor_health_screening_completed': s['donor_health_screening_completed'],
-                'donor_consent_form_completed': s['donor_consent_form_completed'],
-                'notes': s['notes']
-            } for s in db_submissions])
-            
-            csv = csv_data.to_csv(index=False)
-            st.download_button(
-                label="📥 Download All Submissions as CSV",
-                data=csv,
-                file_name=f"lifeblood_submissions_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
+        # Display exact raw table content - all columns as they appear in the database
+        raw_data = []
+        for submission in db_submissions:
+            raw_data.append({
+                'id': submission['id'],
+                'form_date': submission['form_date'],
+                'inspector_name': submission['inspector_name'],
+                'user_email': submission['user_email'],
+                'submission_time': submission['submission_time'],
+                'donation_chairs_condition': submission['donation_chairs_condition'],
+                'blood_collection_equipment_condition': submission['blood_collection_equipment_condition'],
+                'monitoring_devices_condition': submission['monitoring_devices_condition'],
+                'safety_equipment_condition': submission['safety_equipment_condition'],
+                'donor_name': submission['donor_name'],
+                'donor_contact_number': submission['donor_contact_number'],
+                'donor_health_screening_completed': 'Yes' if submission['donor_health_screening_completed'] else 'No',
+                'donor_consent_form_completed': 'Yes' if submission['donor_consent_form_completed'] else 'No',
+                'notes': submission['notes'],
+                'created_at': submission['created_at'],
+                'last_modified_time': submission['last_modified_time'],
+                'last_modified_by': submission['last_modified_by'],
+                'edit_reason': submission['edit_reason']
+            })
+        
+        # Convert to DataFrame and display with exact column names from database
+        df_raw = pd.DataFrame(raw_data)
+        
+        st.dataframe(
+            df_raw,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "id": st.column_config.NumberColumn("ID", width="small"),
+                "form_date": st.column_config.DateColumn("Form Date", width="medium"),
+                "inspector_name": st.column_config.TextColumn("Inspector Name", width="medium"),
+                "user_email": st.column_config.TextColumn("User Email", width="medium"),
+                "submission_time": st.column_config.DatetimeColumn("Submission Time", width="medium"),
+                "donation_chairs_condition": st.column_config.TextColumn("Donation Chairs", width="medium"),
+                "blood_collection_equipment_condition": st.column_config.TextColumn("Blood Collection Equip", width="medium"),
+                "monitoring_devices_condition": st.column_config.TextColumn("Monitoring Devices", width="medium"),
+                "safety_equipment_condition": st.column_config.TextColumn("Safety Equipment", width="medium"),
+                "donor_name": st.column_config.TextColumn("Donor Name", width="medium"),
+                "donor_contact_number": st.column_config.TextColumn("Donor Contact", width="medium"),
+                "donor_health_screening_completed": st.column_config.TextColumn("Health Screening", width="small"),
+                "donor_consent_form_completed": st.column_config.TextColumn("Consent Form", width="small"),
+                "notes": st.column_config.TextColumn("Notes", width="large"),
+                "created_at": st.column_config.DatetimeColumn("Created At", width="medium"),
+                "last_modified_time": st.column_config.DatetimeColumn("Last Modified", width="medium"),
+                "last_modified_by": st.column_config.TextColumn("Modified By", width="medium"),
+                "edit_reason": st.column_config.TextColumn("Edit Reason", width="large")
+            }
+        )
+        
+        # Show table info
+        st.markdown("**Table Information:**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Records", len(db_submissions))
+        with col2:
+            modified_records = sum(1 for s in db_submissions if s.get('last_modified_time'))
+            st.metric("Modified Records", modified_records)
+        with col3:
+            unique_users = len(set(s['user_email'] for s in db_submissions))
+            st.metric("Unique Users", unique_users)
     else:
         st.info("📝 No submissions found. Submit the form above to see data here.")
         st.caption(f"Data will be stored in `{get_table_name()}` table")

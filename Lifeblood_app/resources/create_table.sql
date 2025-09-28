@@ -30,7 +30,12 @@ CREATE TABLE livr.lifeblood.lifeblood_app (
     notes STRING,
     
     -- System fields
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    
+    -- Audit trail fields for record modifications
+    last_modified_time TIMESTAMP,
+    last_modified_by STRING,
+    edit_reason STRING
 ) USING DELTA
 TBLPROPERTIES (
   'delta.feature.allowColumnDefaults' = 'supported'
