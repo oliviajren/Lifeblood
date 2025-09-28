@@ -1,14 +1,63 @@
 # Lifeblood Red Cross Australia - Donor Center Inspection App
 
-A Databricks Asset Bundle (DAB) application for Lifeblood Red Cross Australia to digitize donor center equipment and compliance inspections.
+A comprehensive Databricks Asset Bundle (DAB) application for Lifeblood Red Cross Australia to digitize donor center equipment and compliance inspections with full editing capabilities and audit trail.
+
+> **Version 2.0** - Now includes record editing, before/after comparison, and enhanced data transparency features.
 
 ## 🏥 About
 
-This Streamlit application replaces manual paper-based inspections with a digital form that:
-- Records equipment condition checks (donation chairs, blood collection equipment, monitoring devices, safety equipment)
-- Captures donor compliance information (health screening, consent forms)
-- Prevents duplicate submissions
-- Stores all data in Unity Catalog Delta Lake for analysis and reporting
+This comprehensive Streamlit application replaces manual paper-based inspections with a digital form system that:
+- **Records** equipment condition checks (donation chairs, blood collection equipment, monitoring devices, safety equipment)
+- **Captures** donor compliance information (health screening, consent forms)
+- **Prevents** duplicate submissions with intelligent validation
+- **Enables** editing of existing inspection records with full audit trail
+- **Provides** before/after comparison for all record modifications
+- **Displays** raw table data for complete transparency
+- **Stores** all data in Unity Catalog Delta Lake for analysis and reporting
+- **Maintains** comprehensive audit logs for compliance and accountability
+
+## ✨ Application Features
+
+### 🎯 Three Operational Modes
+
+#### 📝 Submit New Inspection
+- **PowerApps-style form** with intuitive two-column layout
+- **Equipment Status Check** (left column): Donation chairs, blood collection equipment, monitoring devices, safety equipment
+- **Donor Compliance Check** (right column): Donor information, health screening, consent forms
+- **Real-time validation** with comprehensive error checking
+- **Recent Submissions table** showing exact raw database content
+- **Duplicate prevention** to avoid identical submissions
+
+#### ✏️ Edit Existing Inspection
+- **Record selection** from dropdown list of all existing inspections
+- **Identical form layout** to Submit New Inspection for consistency
+- **Pre-populated fields** with current values from database
+- **Yes/No dropdowns** for user-friendly boolean input
+- **Required edit reason** for audit trail compliance
+- **Before/After comparison** showing detailed field-by-field changes
+- **Change detection** highlighting modified vs unchanged fields
+- **Audit information** tracking who, when, and why changes were made
+
+#### 📊 View All Submissions
+- **Raw table display** showing exact database content
+- **All columns visible** including audit trail fields (created_at, last_modified_time, etc.)
+- **User-friendly boolean display** (Yes/No instead of true/false)
+- **Table statistics** showing total records, modified records, and unique users
+- **Sortable and searchable** data grid for easy navigation
+
+### 🔐 Security & Audit Features
+- **Service Principal Proxy Pattern**: App acts as database proxy for all authenticated users
+- **Complete audit trail**: Every edit tracked with user, timestamp, and reason
+- **User authentication**: Automatic Databricks workspace user detection
+- **Permission isolation**: Users only need app access, not direct database permissions
+- **Data integrity**: All changes logged for compliance and accountability
+
+### 🎨 User Experience
+- **Consistent interface**: All modes use the same visual design language
+- **Professional styling**: PowerApps-inspired layout with clear sections
+- **Responsive design**: Works across different screen sizes
+- **Real-time feedback**: Immediate validation and success/error messages
+- **Intuitive navigation**: Clear mode selection with descriptive icons
 
 ## 🚀 Deployment Guide for New Environments
 
@@ -170,10 +219,12 @@ The application uses Unity Catalog with the following structure:
 - **Table:** `lifeblood_app`
 
 ### Table Columns:
-- Form metadata: `form_date`, `inspector_name`, `user_email`, `submission_time`
-- Equipment conditions: `donation_chairs_condition`, `blood_collection_equipment_condition`, etc.
-- Donor information: `donor_name`, `donor_contact_number`, compliance flags
-- Additional: `notes`, `created_at`
+- **Form metadata**: `id`, `form_date`, `inspector_name`, `user_email`, `submission_time`
+- **Equipment conditions**: `donation_chairs_condition`, `blood_collection_equipment_condition`, `monitoring_devices_condition`, `safety_equipment_condition`
+- **Donor information**: `donor_name`, `donor_contact_number`, `donor_health_screening_completed`, `donor_consent_form_completed`
+- **Additional data**: `notes`
+- **System fields**: `created_at` (original creation timestamp)
+- **Audit trail fields**: `last_modified_time`, `last_modified_by`, `edit_reason` (for tracking record modifications)
 
 ## 🔧 Configuration
 
@@ -181,10 +232,15 @@ The application uses Unity Catalog with the following structure:
 - `DATABRICKS_WAREHOUSE_HTTP_PATH`: SQL warehouse connection path
 
 ### Key Features
+- **Three Operation Modes**: Submit new, edit existing, and view all submissions
+- **Record Editing**: Full edit capability with audit trail and before/after comparison
 - **Duplicate Detection**: Prevents identical form submissions
-- **User Authentication**: Automatic Databricks user detection
-- **Data Validation**: Comprehensive form validation
-- **Real-time Feedback**: Immediate submission confirmation
+- **User Authentication**: Automatic Databricks user detection with service principal proxy
+- **Data Validation**: Comprehensive form validation with real-time error checking
+- **Audit Trail**: Complete tracking of all record modifications
+- **Raw Data Display**: Transparent view of exact database content
+- **User-Friendly Interface**: Yes/No dropdowns instead of technical true/false values
+- **Real-time Feedback**: Immediate submission confirmation and detailed change summaries
 
 ## 🧪 Development
 
@@ -217,15 +273,45 @@ databricks bundle validate
 
 ## 📊 Usage
 
+### Getting Started
 1. **Access the app** via the provided Databricks Apps URL
-2. **Review the form guidance** at the top of the page
-3. **Fill out the inspection form:**
-   - Select inspection date and enter inspector name
-   - Check equipment conditions (left side)
-   - Enter donor compliance information (right side)
-   - Add optional notes
-4. **Submit the form** - duplicate detection will prevent identical submissions
-5. **View recent submissions** in the table below the form
+2. **Authenticate** automatically through your Databricks workspace login
+3. **Select your mode** from the three options at the top of the page
+
+### 📝 Submit New Inspection Mode
+1. **Review the form guidance** section for important instructions
+2. **Fill out the inspection form:**
+   - **Form Information**: Select inspection date and enter inspector name
+   - **Equipment Status Check** (left column): Assess condition of all equipment types
+   - **Donor Compliance Check** (right column): Enter donor information and compliance status
+   - **Additional Notes**: Add any observations or issues (optional)
+3. **Submit the form** - comprehensive validation and duplicate detection will ensure data quality
+4. **View confirmation** with submission summary and balloons animation
+5. **Browse recent submissions** in the raw table data below the form
+
+### ✏️ Edit Existing Inspection Mode
+1. **Select a record** from the dropdown list (shows ID - Date - Inspector - Donor format)
+2. **Review original details** in the expandable "Original Submission Details" section
+3. **Edit the form** using the same layout as Submit New Inspection:
+   - All fields pre-populated with current values
+   - Yes/No dropdowns for user-friendly boolean input
+   - Same validation rules as new submissions
+4. **Provide edit reason** (required for audit trail)
+5. **Submit changes** and view detailed before/after comparison
+6. **Review audit information** showing who, when, and why the record was modified
+
+### 📊 View All Submissions Mode
+1. **Browse all records** in raw table format showing exact database content
+2. **View all columns** including audit trail fields for complete transparency
+3. **Check table statistics** showing total records, modifications, and unique users
+4. **Sort and search** through the data grid for specific records
+5. **Export data** using browser's built-in table export features
+
+### 🔍 Understanding the Data Display
+- **Boolean fields** display as "Yes"/"No" for user-friendly reading
+- **Audit fields** show modification history when records have been edited
+- **Timestamps** are in standard format for easy interpretation
+- **All modes** show consistent data formatting for professional appearance
 
 ## 🔒 Security & Permissions
 
@@ -280,6 +366,28 @@ All form submissions are stored in Unity Catalog and can be analyzed using:
 #### 5. **User Email Shows as Service Principal ID**
 - **Cause:** User detection not working in Databricks Apps
 - **Solution:** This is expected behavior - the app will detect the actual user email when accessed via Databricks Apps URL
+
+#### 6. **"No existing submissions found to edit" in Edit Mode**
+- **Cause:** No records in database or permissions issue
+- **Solution:** 
+  ```bash
+  # Check if table has data
+  databricks sql execute --warehouse-id YOUR_WAREHOUSE_ID "SELECT COUNT(*) FROM livr.lifeblood.lifeblood_app"
+  
+  # If empty, submit a test record first using Submit New Inspection mode
+  ```
+
+#### 7. **Edit Form Shows "true/false" Instead of "Yes/No"**
+- **Cause:** Boolean conversion issue in comparison display
+- **Solution:** This should be automatically handled - if persisting, redeploy the app:
+  ```bash
+  databricks bundle deploy --profile YOUR_PROFILE
+  databricks bundle run lifeblood_streamlit_app --profile YOUR_PROFILE
+  ```
+
+#### 8. **Before/After Comparison Not Showing Changes**
+- **Cause:** Field values identical or comparison function issue
+- **Solution:** Ensure you're actually changing field values and that the edit reason is provided
 
 ### Getting Help
 1. Check app logs in Databricks workspace under "Apps" section
